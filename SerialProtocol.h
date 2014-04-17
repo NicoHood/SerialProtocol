@@ -102,6 +102,30 @@
 //Protocol_ Class
 //================================================================================
 
+  /*
+   Calculate bytes (blocks) being send depending on the bitlength.
+   For the protocol I do a little trick here:
+   If it needs to send 6 blocks save the first bit of the data in the length.
+   This works, because the length is never more than 6. The reader has to decode this of course
+   
+   ================================================
+   |11LLLDDD||0DDDDDDD|0DDDDDDD|0DDDDDDD||10AAAAAA|
+   ================================================
+   Lead: 2bit lead indicator, 3bit length (including data bit #31), 3bit data
+   Data: 7bit optional data (0-4 blocks)
+   End : 2bit end indicator, 6bit address
+   
+   3bit length in leader:
+   error    000   (Probably used for direct 3 bit commands)
+   error    001   (Probably used for direct 3 bit commands)
+   0-3   =2 010   2 blocks
+   4-10  =3 011   3 blocks
+   11-17 =4 100   4 blocks
+   18-24 =5 101   5 blocks
+   25-30 =6 11(0) 6 blocks + bit #31 is zero
+   31    =7 11(1) 6 blocks + bit #31 is one
+   */
+
 class CProtocol{
 public:
   CProtocol(); //constructor
