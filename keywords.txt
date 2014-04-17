@@ -1,0 +1,63 @@
+#######################################
+# Syntax Coloring Map For MediaKeys
+#######################################
+
+#######################################
+# Datatypes (KEYWORD1)
+#######################################
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+
+Protocol	KEYWORD3
+
+read	KEYWORD2
+write	KEYWORD2
+setStream	KEYWORD2
+getData	KEYWORD2
+getAddress	KEYWORD2
+
+#######################################
+# Instances (KEYWORD2)
+#######################################
+
+CProtocol	KEYWORD2
+
+#######################################
+# Constants (LITERAL1)
+#######################################
+
+#Clients
+RaspberryPi	LITERAL2
+Arduino	LITERAL2
+
+#Settings
+DEBUG_OUTPUT_ERRORS	LITERAL2
+DEBUG_OUTPUT_INFOS	LITERAL2
+SERIAL_TIMEOUT	LITERAL2
+DEVICE_PRINT	LITERAL2
+
+#Devices
+ARDUINO_UNO	LITERAL2
+FTDI_PROGRAMMER	LITERAL2
+HARDWARE_UART	LITERAL2
+
+#Functions
+SERIAL_AVAILABLE	LITERAL2
+SERIAL_WRITE	LITERAL2
+SERIAL_READ	LITERAL2
+SERIAL_FLUSH	LITERAL2
+
+#debug output
+WRITE	LITERAL2
+PRINT	LITERAL2
+PRINTLN	LITERAL2
+PRINT_HEX	LITERAL2
+PRINT_DEC	LITERAL2
+
+PRINT_ERR_HEX	LITERAL2
+PRINT_ERR	LITERAL2
+PRINT_INFO_HEX	LITERAL2
+PRINT_INFO	LITERAL2
+
