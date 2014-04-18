@@ -3,6 +3,12 @@ SerialProtocol
 
 A Protocol for Arduino - Raspberry Pi communication
 
+*Click Download as zip to download*
+
+Dokumentation:
+==============
+http://nicohood.wordpress.com/2014/04/18/arduino-raspberry-pi-serial-communication-protocol-via-usb-and-cc/
+
 This protocol sends dynamic 32Bit of data with up to 64 addresses between the Arduino and Raspberry pi.
 It can also be used for communication between two Pis or two Arduinos.
 
@@ -38,5 +44,6 @@ And finally i defined some general functions that works on Pi and Arduino. You m
    25-30 =6 11(0) 6 blocks + bit #31 is zero
    31    =7 11(1) 6 blocks + bit #31 is one
    */
-   
-   Questions? Just ask. Blog entry comming soon...
+  
+   Questions? Just ask under my blog entry.
+
