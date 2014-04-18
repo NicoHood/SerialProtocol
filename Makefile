@@ -1,3 +1,7 @@
+#how to compile:
+#cd /home/pi/Desktop/Arduino/Arduino_Serial
+#sudo make && sudo ./Pi_Serial
+
 Pi_Serial: Pi_Serial.o SerialProtocol.o
 	gcc -o Pi_Serial Pi_Serial.o SerialProtocol.o -lwiringPi -DRaspberryPi -pedantic -Wall
 	rm *.o
