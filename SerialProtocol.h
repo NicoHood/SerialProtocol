@@ -1,10 +1,9 @@
 /*
- SerialProtocol.h - SerialProtocol library - description
- Copyright (c) 2014 NicoHood.  All right reserved.
- Daniel Garcia from the FASTLED library helped me with this code
- */
+SerialProtocol.h - SerialProtocol library - description
+Copyright (c) 2014 NicoHood.  All right reserved.
+Daniel Garcia from the FASTLED library helped me with this code
+*/
 
-// ensure this library description is only included once
 #ifndef SerialProtocol_h
 #define SerialProtocol_h
 
@@ -12,13 +11,11 @@
 //Settings
 //================================================================================
 
-//Debugoutput
-//#define DEBUG_OUTPUT_ERRORS //outputs errors
-//#define DEBUG_OUTPUT_INFOS //outputs infos
-#define DEVICE_PRINT Serial //Arduino only
+//Debug output
+#define PROTOCOL_PRINT_ERROR
+//#define PROTOCOL_PRINT_INFO
+#define PROTOCOL_PRINT_OUTPUT Serial //Arduino only
 
-//Set values
-#define SERIAL_TIMEOUT 1000 //<-- not used
 
 //================================================================================
 //Raspberry only
@@ -39,19 +36,6 @@
 #define FTDI_PROGRAMMER "/dev/ttyUSB0"
 #define HARDWARE_UART "/dev/ttyAMA0"
 
-//Serial functions
-#define SERIAL_AVAILABLE() serialDataAvail (mpStream-1) //-1 because its set +1 in setStream
-#define SERIAL_WRITE(data) serialPutchar (mpStream-1, uint8_t(data))
-#define SERIAL_READ() serialGetchar (mpStream-1)
-#define SERIAL_FLUSH() serialFlush(mpStream-1)
-
-//Debug Print functions
-#define WRITE(data) do{printf("%c", data); fflush(stdout);} while(0)
-#define PRINTLN(data) do{printf("%s \n", data); fflush(stdout);} while(0)
-#define PRINT(data) do{printf("%s", data); fflush(stdout);} while(0)
-#define PRINT_HEX(data) do{printf("%x", data); fflush(stdout);} while(0)
-#define PRINT_DEC(data) do{printf("%d", data); fflush(stdout);} while(0)
-
 //================================================================================
 //Arduino only
 //================================================================================
@@ -60,115 +44,94 @@
 
 //Arduino Library
 #include <Arduino.h>
-#define Arduino
-
-//Serial functions
-#define SERIAL_AVAILABLE() mpStream->available()
-#define SERIAL_WRITE(data)  mpStream->write(uint8_t(data))
-#define SERIAL_READ() mpStream->read()
-#define SERIAL_FLUSH()  mpStream->flush()
-
-//Debug Print functions
-#define WRITE(data) DEVICE_PRINT.write(uint8_t(data))
-#define PRINT(data) DEVICE_PRINT.print(data)
-#define PRINTLN(data) DEVICE_PRINT.println(data)
-#define PRINT_HEX(data) DEVICE_PRINT.print(data, HEX)
-#define PRINT_DEC(data) DEVICE_PRINT.print(data, DEC)
 
 #endif //#ifdef RaspberryPi
 
 //================================================================================
-//Global definitions
+//Explanation
 //================================================================================
 
-//Debug output:
-#ifdef DEBUG_OUTPUT_ERRORS
-#define PRINT_ERR_HEX(data) do{PRINT("(err)"); PRINT_HEX(data);} while(0)
-#define PRINT_ERR(message) do{PRINT("(err)"); PRINTLN(message);} while(0)
-#else
-#define PRINT_ERR_HEX(x) do{} while(0)
-#define PRINT_ERR(x) do{} while(0)
-#endif
+/*
+Calculate bytes (blocks) being send depending on the bitlength.
+For the protocol I do a little trick here:
+If it needs to send 6 blocks save the first bit of the data in the length.
+This works, because the length is never more than 6. The reader has to decode this of course
+Same works for the 4 bit command.
 
-#ifdef DEBUG_OUTPUT_INFOS
-#define PRINT_INFO_HEX(data) do{PRINT("(i)"); PRINT_HEX(data);} while(0)
-#define PRINT_INFO(message) do{PRINT("(i)"); PRINT(message);} while(0)
-#else
-#define PRINT_INFO_HEX(x) do{} while(0)
-#define PRINT_INFO(x) do{} while(0)
-#endif
+================================================
+|11LLLDDD||0DDDDDDD|0DDDDDDD|0DDDDDDD||10AAAAAA|
+================================================
+Lead: 2bit lead indicator, 3bit length (including data bit #31, command bit #3), 3bit data/3bit command
+Data: 7bit optional data (0-4 blocks)
+End : 2bit end indicator, 6bit address
+
+3bit length in leader:
+command  00(0) 4bit command
+command  00(1) 4bit command
+0-3   =2 010   2 blocks
+4-10  =3 011   3 blocks
+11-17 =4 100   4 blocks
+18-24 =5 101   5 blocks
+25-30 =6 11(0) 6 blocks + bit #31 is zero
+31    =7 11(1) 6 blocks + bit #31 is one
+*/
 
 //================================================================================
 //Protocol_ Class
 //================================================================================
 
-  /*
-   Calculate bytes (blocks) being send depending on the bitlength.
-   For the protocol I do a little trick here:
-   If it needs to send 6 blocks save the first bit of the data in the length.
-   This works, because the length is never more than 6. The reader has to decode this of course
-   
-   ================================================
-   |11LLLDDD||0DDDDDDD|0DDDDDDD|0DDDDDDD||10AAAAAA|
-   ================================================
-   Lead: 2bit lead indicator, 3bit length (including data bit #31), 3bit data
-   Data: 7bit optional data (0-4 blocks)
-   End : 2bit end indicator, 6bit address
-   
-   3bit length in leader:
-   error    000   (Probably used for direct 3 bit commands)
-   error    001   (Probably used for direct 3 bit commands)
-   0-3   =2 010   2 blocks
-   4-10  =3 011   3 blocks
-   11-17 =4 100   4 blocks
-   18-24 =5 101   5 blocks
-   25-30 =6 11(0) 6 blocks + bit #31 is zero
-   31    =7 11(1) 6 blocks + bit #31 is one
-   */
-
 class CProtocol{
 public:
-  CProtocol(); //constructor
+	CProtocol();
 
-  //set filedescriptor/stream pointer
 #ifdef RaspberryPi
-  void setStream(int fd);
+	// set filedescriptor
+	void setSerial(int fd);
 #else //Arduino
-  void setStream(Stream *pStream);
-  inline void setStream(Stream &stream) { 
-    setStream(&stream); 
-  }
+	// set serial stream pointer/reference
+	void setSerial(Stream *pStream);
+	void setSerial(Stream &stream) { setSerial(&stream); }
 #endif
 
-  //<-- add a sync?
+	// user read/write functions
+	uint8_t read(void);
+	void sendCommand(uint8_t command);
+	void sendAddress(uint8_t address, uint32_t data);
 
-  // user read/write functions
-  uint8_t read(void);
-  void write(uint8_t b);
-  void write(uint8_t address, uint32_t data);
-
-  // access for the variables
-  inline uint32_t getData(){ 
-    return mData; 
-  }
-  inline uint8_t getAddress(){ 
-    return mAddress; 
-  }
+	// access for the variables
+	inline uint32_t getCommand(){ return mCommand; }
+	inline uint32_t getData(){  return mData; }
+	inline uint8_t getAddress(){ return mAddress; }
 
 private:
-  // Fully read data
-  uint32_t mData;
-  uint8_t mAddress;
+	// debug print functions
+	void print(const char chars[]);
+	void print(uint32_t hex);
+	void printError(const char chars[]);
+	void printError(uint32_t hex);
+	void printInfo(const char chars[]);
+	void printInfo(uint32_t hex);
 
-  // in progress reading data
-  uint8_t mBlocks;
-  uint32_t mWorkData;
+	// Serial functions
+	inline uint8_t serRead();
+	void serWrite(uint8_t b);
+	inline int serAvailable();
 
-  // Filedescriptor/Stream pointer
+	// Fully read data
+	uint32_t mData;
+	uint8_t mAddress;
+	uint8_t mCommand;
+
+	// in progress reading data
+	uint8_t mBlocks;
+	uint32_t mWorkData;
+
 #ifdef RaspberryPi
-  int mpStream; //filedescriptor for Serial
+	// filedescriptor for Serial
+	int mSerial; 
 #else //Arduino
-  Stream *mpStream; // Stream for io
+	// Streampointer for Serial
+	Stream *mSerial; 
 #endif
 
 };

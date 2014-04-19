@@ -1,5 +1,5 @@
 /*
- Arduino_Serial.ino - SerialProtocol library - demo
+Arduino_Serial.ino - SerialProtocol library - demo
  Copyright (c) 2014 NicoHood.  All right reserved.
  Daniel Garcia from the FASTLED library helped me with this code
  
@@ -7,23 +7,24 @@
  *The library provides different definitions for printing with the same syntax
  Use: PRINTLN() PRINT() WRITE() PRINT_HEX() PRINT_DEC()
  *Enable debug output for errors/infos in the .h file!
- #define DEBUG_OUTPUT_ERRORS //outputs errors
- #define DEBUG_OUTPUT_INFOS //outputs infos
- If enabled you can use PRINT_INFO() PRINT_INFO_HEX() PRINT_ERR() PRINT_ERR_HEX()
- *You can switch between two Serials with just recalling setStream()
+ *You can switch between two Serials with just recalling setSerial()
  This will cancel any pending reading
  *Find Serial device on Raspberry with ~ls /dev/tty*
  ARDUINO_UNO "/dev/ttyACM0"
  FTDI_PROGRAMMER "/dev/ttyUSB0"
  HARDWARE_UART "/dev/ttyAMA0"
  *Compile it like this
- cd /home/pi/Desktop/Arduino/Projects/Arduino_Raspberry/Arduino_Serial
+ cd /home/pi/Desktop/Arduino/libraries/SerialProtocol/examples/Arduino_Serial
  sudo make && sudo ./Pi_Serial
  */
 
-//Button setup
+//Hardware Setup
 int buttonPin=8;
 unsigned long lastButton=0; //debounce
+int ledPin = 9;
+int sensorPin=18;
+long previousMillis = 0; 
+long previousMillis2 = 0; 
 
 //Protocol
 #include "SerialProtocol.h"
@@ -34,6 +35,8 @@ void setup()
   // button setup with pullup
   pinMode(buttonPin, INPUT);
   digitalWrite(buttonPin, HIGH);
+  pinMode(sensorPin, INPUT);
+  pinMode(ledPin, OUTPUT);
 
   delay(1000);
   while(!Serial && !Serial1); //for Leonardo wait for Pi or PC
@@ -42,48 +45,88 @@ void setup()
   Serial1.begin(9600); //Protocol communication
   Serial.begin(9600);  //debug output
 
-  PRINTLN("Arduino Startup!");
+  Serial.println("Arduino Startup!");
 
-  Protocol.setStream(Serial1);
+  // Pass the Serial we want to communicate
+  // you can also call the function in you loop
+  // to change the Serial at any time
+  Protocol.setSerial(Serial1);
+
 }
 
 
 void loop()
 {
   if(digitalRead(buttonPin)==LOW && millis()-lastButton>=200){
-    PRINTLN("Button");
+    Serial.println("Button");
 
-    // Write some testavalues
-    // Syntax: Address 0-63, 32bit Data (unsigned long)
-    Protocol.write(13, 0xABCDEF03); 
-    Protocol.write(1, 0x01);
-    Protocol.write(2, 0x00);
-    Protocol.write(3, 0x3a);
-    Protocol.write(42, 0x4224);
-    Protocol.write(63, 0xffffffff);
+    // Write some testvalues
+    // Syntax: Address 1-64, 32bit Data (unsigned long)
+    Protocol.sendAddress(1, random(1000)); 
 
-    // stresstest with random bytes
-    //#define DEBUG_OUTPUT_ERRORS //outputs errors
-    //PRINTLN("+++Stresstest+++");
-    //stresstest();
+    // Write a direct 4 bit command
+    // Syntax: Command: 1-16
+    Protocol.sendCommand(2);
 
     // for debounce
     lastButton=millis(); 
   }
 
+  // send analogread every 3 sec
+  if(millis() - previousMillis > 3000) {
+    Protocol.sendAddress(2, analogRead(sensorPin)); 
+    previousMillis = millis();   
+  }
+
+  // send Ping every 10 sec
+  if(millis() - previousMillis2 > 10000) {
+    Protocol.sendCommand(1);
+    previousMillis2 = millis();   
+  }
+
   if(Protocol.read()){
-    PRINT_HEX(Protocol.getData());
-    PRINT(" ");
-    PRINT_HEX(Protocol.getAddress());
-    PRINT("\n");    
+    /*
+    Serial.print(Protocol.getData());
+     Serial.print(" ");
+     Serial.print(Protocol.getAddress());
+     Serial.print(" ");
+     Serial.print(Protocol.getCommand());
+     Serial.print("\n");   
+     */
+
+    switch(Protocol.getAddress()){
+    case 0:
+      // No Address -> Command
+      break;
+    case 1:
+      analogWrite(ledPin, Protocol.getData());
+      break;
+    default:
+      //not used
+      break;
+    }//end switch
+
+    switch(Protocol.getCommand()){
+    case 0:
+      // No Command -> Address
+      break;
+    case 1:
+      Serial.println("Ping!");
+      break;
+    default:
+      //not used
+      break;
+    }//end switch
+
   }
 
 }
 
-void stresstest (void){
-  for(int i=0; i<256; i++){
-    // write random raw bytes to check error detection
-    Protocol.write(random(256));
-  } 
-}
+
+
+
+
+
+
+
 
