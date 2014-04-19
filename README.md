@@ -3,7 +3,7 @@ SerialProtocol
 
 A Protocol for Arduino - Raspberry Pi communication
 
-*Click Download as zip to download or link below*
+*Click Download as zip to download or this link*
 https://github.com/NicoHood/SerialProtocol/archive/master.zip
 
 Dokumentation:
