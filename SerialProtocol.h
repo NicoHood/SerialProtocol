@@ -12,7 +12,7 @@ Daniel Garcia from the FASTLED library helped me with this code
 //================================================================================
 
 //Debug output
-#define PROTOCOL_PRINT_ERROR
+//#define PROTOCOL_PRINT_ERROR
 //#define PROTOCOL_PRINT_INFO
 #define PROTOCOL_PRINT_OUTPUT Serial //Arduino only
 
