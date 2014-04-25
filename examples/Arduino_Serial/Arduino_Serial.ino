@@ -1,21 +1,47 @@
 /*
-Arduino_Serial.ino - SerialProtocol library - demo
+ Arduino_Serial.ino - SerialProtocol library - demo
  Copyright (c) 2014 NicoHood.  All right reserved.
  Daniel Garcia from the FASTLED library helped me with this code
  
- Some additional Information:
- *The library provides different definitions for printing with the same syntax
- Use: PRINTLN() PRINT() WRITE() PRINT_HEX() PRINT_DEC()
- *Enable debug output for errors/infos in the .h file!
- *You can switch between two Serials with just recalling setSerial()
- This will cancel any pending reading
+ ================================================================================
+ Instructions
+ ================================================================================
+ 
  *Find Serial device on Raspberry with ~ls /dev/tty*
  ARDUINO_UNO "/dev/ttyACM0"
  FTDI_PROGRAMMER "/dev/ttyUSB0"
  HARDWARE_UART "/dev/ttyAMA0"
- *Compile it like this
+ 
+ How to setup:
+ Install Serial Protocol with
+ cd /home/pi/Desktop/Arduino/libraries/SerialProtocol/
+ sudo make install
+ 
+ Compile you program of choice:
+ cd /home/pi/Desktop/Arduino/libraries/SerialProtocol/
+ sudo make serialtest
+ sudo make ambilight
+ 
+ Start your program of choice (close with crtl+c):
+ cd /home/pi/Desktop/Arduino/libraries/SerialProtocol/
+ sudo examples/Arduino_Serial/Pi_Serial.o
+ sudo examples/Ambilight_Serial/Ambilight_Serial.o
+ 
+ General information about compiling:
+ If the Arduino and Raspberry program are placed in the same path make sure to name them different
+ You can add other entrys to the makefile with your own sketches, or just create a new makefile
+ You can also compile every sketch with the following compiler flags (install wiringPi and SerialProtocol first):
+ gcc -o outpath/outname.o inpath/inname.cpp -DRaspberryPi -lwiringPi -lSerialProtocol -pedantic -Wall
+ For uninstall just delete the files that the makefile writes. Havent created a uninstall yet, sorry.
+ You might want to checkout the makefile in the Arduino_Serial example
+ 
+ Direct compile and start program:
  cd /home/pi/Desktop/Arduino/libraries/SerialProtocol/examples/Arduino_Serial
+ sudo gcc -o Pi_Serial.o Pi_Serial.cpp -pedantic -Wall -lwiringPi -lSerialProtocol -DRaspberryPi  && sudo ./Ambilight_Serial.o
+ sudo ./Pi_Serial
+ or optional with the makefile for this example:
  sudo make && sudo ./Pi_Serial
+ 
  */
 
 //Hardware Setup
@@ -49,7 +75,8 @@ void setup()
 
   // Pass the Serial we want to communicate
   // you can also call the function in you loop
-  // to change the Serial at any time
+  // to change the Serial at any time again
+  // this will cancel any pending data reads.
   Protocol.setSerial(Serial1);
 
 }
@@ -84,49 +111,47 @@ void loop()
     previousMillis2 = millis();   
   }
 
-  if(Protocol.read()){
-    /*
-    Serial.print(Protocol.getData());
-     Serial.print(" ");
-     Serial.print(Protocol.getAddress());
-     Serial.print(" ");
-     Serial.print(Protocol.getCommand());
-     Serial.print("\n");   
-     */
+  // read Serial
+  // if you dont need an error check you can build an if() or while()
+  // around the read function to save time. while for reading every incoming data
+  // pay attention if you use while if you get corrupted data with some correct
+  // then the while might never end until the stream does.
+  Protocol.read();
 
-    switch(Protocol.getAddress()){
-    case 0:
-      // No Address -> Command
-      break;
-    case 1:
-      analogWrite(ledPin, Protocol.getData());
-      break;
-    default:
-      //not used
-      break;
-    }//end switch
-
-    switch(Protocol.getCommand()){
-    case 0:
-      // No Command -> Address
-      break;
-    case 1:
-      Serial.println("Ping!");
-      break;
-    default:
-      //not used
-      break;
-    }//end switch
-
+  // check for Errors (explained in dokumentation/.h)
+  uint8_t error = Protocol.getErrorLevel();
+  if(error){
+    // print how many errors occured and the special types
+    Serial.println("Errors: ");
+    Serial.println(error&PROTOCOL_ERR_MAX);
+    if((error&PROTOCOL_ERR_LEAD)==PROTOCOL_ERR_LEAD) Serial.println("Overwriting lead");
+    if((error&PROTOCOL_ERR_DATA)==PROTOCOL_ERR_DATA) Serial.println("Data Err");
+    if((error&PROTOCOL_ERR_END)==PROTOCOL_ERR_END) Serial.println("End Err");
   }
 
+  switch(Protocol.getAddress()){
+  case 0:
+    // No Address
+    break;
+  case 1:
+    analogWrite(ledPin, Protocol.getData());
+    break;
+  default:
+    //not used
+    break;
+  }//end switch
+
+  switch(Protocol.getCommand()){
+  case 0:
+    // No Command
+    break;
+  case 1:
+    Serial.println("Ping!");
+    break;
+  default:
+    //not used
+    break;
+  }//end switch
+
 }
-
-
-
-
-
-
-
-
 

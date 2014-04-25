@@ -11,11 +11,7 @@ Daniel Garcia from the FASTLED library helped me with this code
 //Settings
 //================================================================================
 
-//Debug output
-//#define PROTOCOL_PRINT_ERROR
-//#define PROTOCOL_PRINT_INFO
-#define PROTOCOL_PRINT_OUTPUT Serial //Arduino only
-
+// empty
 
 //================================================================================
 //Raspberry only
@@ -28,7 +24,6 @@ Daniel Garcia from the FASTLED library helped me with this code
 #include <wiringSerial.h>
 
 //include system librarys
-#include <stdio.h> //for printf
 #include <stdint.h> //uint8_t definitions
 
 //Devices, check with ~ls /dev/tty*
@@ -74,7 +69,18 @@ command  00(1) 4bit command
 18-24 =5 101   5 blocks
 25-30 =6 11(0) 6 blocks + bit #31 is zero
 31    =7 11(1) 6 blocks + bit #31 is one
+
+ErrorLevel:
+left 3 bits for error type, other 5 bits for error count
+===========
+|LDEC CCC|
+===========
 */
+
+#define PROTOCOL_ERR_LEAD 0x80
+#define PROTOCOL_ERR_DATA 0x40
+#define PROTOCOL_ERR_END  0x20
+#define PROTOCOL_ERR_MAX  0x1F
 
 //================================================================================
 //Protocol_ Class
@@ -90,37 +96,34 @@ public:
 #else //Arduino
 	// set serial stream pointer/reference
 	void setSerial(Stream *pStream);
-	void setSerial(Stream &stream) { setSerial(&stream); }
+	inline void setSerial(Stream &stream) { setSerial(&stream); }
 #endif
 
 	// user read/write functions
 	uint8_t read(void);
-	void sendCommand(uint8_t command);
+	inline void sendCommand( uint8_t command)	{
+		// send lead mask 11 + length 000 or 001 including the last bit for the 4 bit command
+		serWrite(0xC0 | ((command-1)&0x0F));
+	};
 	void sendAddress(uint8_t address, uint32_t data);
 
 	// access for the variables
-	inline uint32_t getCommand(){ return mCommand; }
-	inline uint32_t getData(){  return mData; }
+	inline uint8_t getCommand(){ return mCommand; }
 	inline uint8_t getAddress(){ return mAddress; }
+	inline uint32_t getData(  ){ return mData; }
+	inline uint8_t getErrorLevel(){ return mErrorLevel; }
 
 private:
-	// debug print functions
-	void print(const char chars[]);
-	void print(uint32_t hex);
-	void printError(const char chars[]);
-	void printError(uint32_t hex);
-	void printInfo(const char chars[]);
-	void printInfo(uint32_t hex);
-
-	// Serial functions
-	inline uint8_t serRead();
-	void serWrite(uint8_t b);
+	// Serial functions (inline might be not correct, but works)
 	inline int serAvailable();
+	inline int serRead();
+	void serWrite(uint8_t b);
 
 	// Fully read data
-	uint32_t mData;
-	uint8_t mAddress;
 	uint8_t mCommand;
+	uint8_t mAddress;
+	uint32_t mData;
+	uint8_t mErrorLevel;
 
 	// in progress reading data
 	uint8_t mBlocks;

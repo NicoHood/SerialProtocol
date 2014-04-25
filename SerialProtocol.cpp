@@ -19,6 +19,7 @@ CProtocol::CProtocol(){
 	mData=0;
 	mAddress=0;
 	mCommand=0;
+	mErrorLevel=0;
 #ifdef RaspberryPi
 	// for the filedescriptor
 	mSerial=-1; 
@@ -52,7 +53,7 @@ void CProtocol::setSerial(Stream *pStream) {
 //Serial Functions
 //================================================================================
 
-uint8_t CProtocol::serRead(void){
+int CProtocol::serRead(void){
 	// we do not need to check mSerial because it was checked in serAvailable
 #ifdef RaspberryPi
 	return serialGetchar (mSerial);
@@ -62,86 +63,24 @@ uint8_t CProtocol::serRead(void){
 }
 
 int CProtocol::serAvailable(void){
+	// only read if there is a filedescriptor/pointer to write to
 #ifdef RaspberryPi
-	if(mSerial<0) {
-		printError("No Serial set");
-		return 0;
-	}
+	if(mSerial<0) return 0;
 	else return serialDataAvail (mSerial);
 #else //Arduino
-	if (mSerial==NULL){
-		printError("No Serial set");
-		return 0;
-	}
+	if (mSerial==NULL) return 0;
 	else return mSerial->available();
 #endif
 }
 
 void CProtocol::serWrite(uint8_t b){
+	// only write if there is a filedescriptor/pointer to write to
 #ifdef RaspberryPi
-	if(mSerial<0){
-		printError("No Serial set");
-		return;
-	}
+	if(mSerial<0) return;
 	else serialPutchar (mSerial, b);
 #else //Arduino
-	// only write if there is a filedescriptor/pointer to write to
-	if (mSerial==NULL){
-		printError("No Serial set");
-		return;
-	}
+	if (mSerial==NULL) return;
 	else mSerial->write(b); 
-
-#endif
-}
-
-//================================================================================
-//Debug Print
-//================================================================================
-
-void CProtocol::print(const char chars[]){	
-#ifdef RaspberryPi
-	// print to console
-	printf("%s", chars);
-	fflush(stdout);
-#else //Arduino
-	// print to debug Serial
-	PROTOCOL_PRINT_OUTPUT.print(chars);
-#endif
-}
-
-void CProtocol::print(uint32_t hex){	
-#ifdef RaspberryPi
-	// print to console
-	printf("%x", hex);
-	fflush(stdout);
-#else //Arduino
-	// print to debug Serial
-	PROTOCOL_PRINT_OUTPUT.print(hex, HEX);
-#endif
-}
-
-void CProtocol::printError(const char chars[]){	
-#ifdef PROTOCOL_PRINT_ERROR
-	print(chars);
-#endif
-}
-
-void CProtocol::printError(uint32_t hex){	
-#ifdef PROTOCOL_PRINT_ERROR
-	print(hex);
-#endif
-}
-
-void CProtocol::printInfo(const char chars[]){	
-#ifdef PROTOCOL_PRINT_INFO
-	print(chars);
-#endif
-}
-
-void CProtocol::printInfo(uint32_t hex){	
-#ifdef PROTOCOL_PRINT_INFO
-	print(hex);
 #endif
 }
 
@@ -150,11 +89,16 @@ void CProtocol::printInfo(uint32_t hex){
 //================================================================================
 
 uint8_t CProtocol::read(void){
+	// reset fully read data
+	mErrorLevel=0; 
+	mCommand=0;
+	mAddress=0;
+	mData=0;
+
 	while(serAvailable()){
 
 		// get new input
 		uint8_t input=serRead();
-		printInfo(input);
 
 		// check the lead/end/data indicator
 		switch(input&0xC0){
@@ -162,34 +106,28 @@ uint8_t CProtocol::read(void){
 			//lead 11
 		case(0xC0): 
 			{
-				if(mBlocks!=0){
-					// we were still reading!  Log an error
-					printError("Overwriting lead\n"); 
-				}
+				// we were still reading!  Log an error
+				if(mBlocks!=0) ++mErrorLevel |= PROTOCOL_ERR_LEAD;
 
-				// save block length + first data bits
+				// read block length or command indicator
 				mBlocks = (input&0x38)>>3;
-				if(mBlocks == 7) {
+				switch(mBlocks){
+					// save 4 bit command
+				case 0:
+				case 1:
+					mCommand=(input & 0x0F)+1;
+					mBlocks = 0;
+					return true;
+					break;
+					// save block length + first 3 data bits
+				case 7:
 					mWorkData = input & 0x0F;
 					mBlocks -=2;
-				} 
-				else if(mBlocks >= 2){
+					break;
+				default:
 					mWorkData = input & 0x07;
 					mBlocks--;
-				} 
-				else {
-					// We got a 4 bit command
-					// save command and return true for new input
-					mCommand=(input & 0x0F)+1;
-					mAddress=0;
-					mData=0;
-					mBlocks = 0;
-
-					printInfo("4Bit Command: ");
-					printInfo(mCommand);
-					printInfo(" Finished!\n");
-
-					return true;
+					break;
 				}
 			}
 			break;
@@ -198,21 +136,14 @@ uint8_t CProtocol::read(void){
 		case(0x80): 
 			{
 				if(mBlocks--==1){
-					// save data + address and return true for new input
+					// save data + address
 					mAddress=(input&0x3F)+1;
 					mData=mWorkData;
-					mCommand=0;
-
-					printInfo("16bit Address/Data: ");
-					printInfo(mAddress);
-					printInfo(mWorkData);
-					printInfo(" Finished!\n");
-
 					return true;
 				}
 				else{
 					// log an error, not ready for an address byte, and reset data counters
-					printError("End Err\n"); 
+					++mErrorLevel |= PROTOCOL_ERR_DATA;
 					mBlocks=0;
 				}
 			}
@@ -223,17 +154,21 @@ uint8_t CProtocol::read(void){
 			{
 				if(mBlocks--<2){
 					// log an error, expecting an address or header byte
-					printError("Data Err\n");
+					++mErrorLevel |= PROTOCOL_ERR_END;
 					mBlocks=0;
 				}
 				else{
-					mWorkData<<=0x07;
-					//dont need &0x7F because first bit is zero!
+					// get next 7 bits of data
+					mWorkData<<=7;
+					// dont need &0x7F because first bit is zero!
 					mWorkData|=input; 
 				}
 			} 
 			break;
 		} // end switch
+
+		// too many errors, stop reading
+		if((mErrorLevel&PROTOCOL_ERR_MAX)==PROTOCOL_ERR_MAX) return false;
 	}
 	//no new input
 	return false; 
@@ -243,19 +178,14 @@ uint8_t CProtocol::read(void){
 //Send Command/Address
 //================================================================================
 
-void CProtocol::sendCommand(uint8_t command){
-	// send lead mask 11 + length 000 or 001 including the last bit for the 4 bit command
-	serWrite(0xC0 | ((command-1)&0x0F));
-	printInfo("Command: ");
-	printInfo(command);
-	printInfo(" Sending... ");
-	printInfo(0xC0 | ((command-1)&0x0F));
-	printInfo(" Done.\n");
-}
+// inline
+//void CProtocol::sendCommand(uint8_t command){
+//	// send lead mask 11 + length 000 or 001 including the last bit for the 4 bit command
+//	serWrite(0xC0 | ((command-1)&0x0F));
+//}
 
 void CProtocol::sendAddress(uint8_t address, uint32_t data){
-	printInfo("Data: ");
-	printInfo(data);
+	// block buffer for sending
 	uint8_t b[6];
 
 	// b[0] has the ‘address’ byte
@@ -286,13 +216,9 @@ void CProtocol::sendAddress(uint8_t address, uint32_t data){
 
 	// now write out the data - lead, then the blocks array in reverse, which will
 	// get your data written out in MSB order, ending with the address block
-	printInfo(" Sending... ");
-	printInfo(lead);
 	serWrite(lead);
 	do { 
 		serWrite(b[blocks]); 
-		printInfo(b[blocks]);
 	} 
 	while(blocks--);
-	printInfo(" Done.\n");
 }

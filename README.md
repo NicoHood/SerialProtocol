@@ -9,6 +9,7 @@ https://github.com/NicoHood/SerialProtocol/archive/master.zip
 Dokumentation:
 ==============
 http://nicohood.wordpress.com/2014/04/18/arduino-raspberry-pi-serial-communication-protocol-via-usb-and-cc/
+and in local folder ./dokumentation a copy of the blogpost
 
 Questions? Just ask under my blog entry/message me there.
 
