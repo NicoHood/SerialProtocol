@@ -71,16 +71,17 @@ command  00(1) 4bit command
 31    =7 11(1) 6 blocks + bit #31 is one
 
 ErrorLevel:
-left 3 bits for error type, other 5 bits for error count
+left 4 bits for error type (lead, data, end, no reading Serial), other 4 bits for error count
 ===========
-|LDEC CCC|
+|LDER CCC|
 ===========
 */
 
 #define PROTOCOL_ERR_LEAD 0x80
 #define PROTOCOL_ERR_DATA 0x40
 #define PROTOCOL_ERR_END  0x20
-#define PROTOCOL_ERR_MAX  0x1F
+#define PROTOCOL_ERR_READ 0x10
+#define PROTOCOL_ERR_MAX  0x0F
 
 //================================================================================
 //Protocol_ Class
@@ -95,30 +96,29 @@ public:
 	void setSerial(int fd);
 #else //Arduino
 	// set serial stream pointer/reference
-	void setSerial(Stream *pStream);
 	inline void setSerial(Stream &stream) { setSerial(&stream); }
+	inline void setSerial(Stream *pStream){ mSerial = pStream;  }
+
+	inline bool read(Stream &stream){
+		setSerial(&stream); return read();}
+	inline int8_t sendCommand(uint8_t command, Stream &stream){
+		setSerial(&stream); return sendCommand(command);}
+	inline int8_t sendAddress(uint8_t address, uint32_t data, Stream &stream){
+		setSerial(&stream); return sendAddress(address, data);}
 #endif
 
 	// user read/write functions
-	uint8_t read(void);
-	inline void sendCommand( uint8_t command)	{
-		// send lead mask 11 + length 000 or 001 including the last bit for the 4 bit command
-		serWrite(0xC0 | ((command-1)&0x0F));
-	};
-	void sendAddress(uint8_t address, uint32_t data);
+	bool read(void);
+	int8_t sendCommand(uint8_t command);
+	int8_t sendAddress(uint8_t address, uint32_t data);
 
 	// access for the variables
-	inline uint8_t getCommand(){ return mCommand; }
-	inline uint8_t getAddress(){ return mAddress; }
-	inline uint32_t getData(  ){ return mData; }
-	inline uint8_t getErrorLevel(){ return mErrorLevel; }
+	inline uint8_t  getCommand()   { return mCommand;    }
+	inline uint8_t  getAddress()   { return mAddress;    }
+	inline uint32_t getData()      { return mData;       }
+	inline uint8_t  getErrorLevel(){ return mErrorLevel; }
 
 private:
-	// Serial functions (inline might be not correct, but works)
-	inline int serAvailable();
-	inline int serRead();
-	void serWrite(uint8_t b);
-
 	// Fully read data
 	uint8_t mCommand;
 	uint8_t mAddress;
@@ -135,6 +135,7 @@ private:
 #else //Arduino
 	// Streampointer for Serial
 	Stream *mSerial; 
+	Stream *mPrevSerial; 
 #endif
 
 };
