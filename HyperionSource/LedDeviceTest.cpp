@@ -130,7 +130,7 @@ LedDeviceSerial::LedDeviceSerial()
 	_updateLed=0;
 
 	// default turned off
-	_status=false;
+	_status=-1;
 }
 
 LedDeviceSerial::~LedDeviceSerial()
@@ -140,6 +140,9 @@ LedDeviceSerial::~LedDeviceSerial()
 
 
 int LedDeviceSerial::write(const std::vector<ColorRgb> & ledValues){
+	// wait for the Serial setup
+	if(_status==-1) return -1;
+
 	// check Serial for new Commands
 	// no serial error output here (only commands, not needed)
 	while(Protocol.read()){
@@ -289,12 +292,14 @@ int LedDeviceSerial::open(const char serialDevice[], const unsigned long serialB
 	// set Serial for Protocol and send a Ping
 	Protocol.setSerial(_fd);
 
-	// give the Serial device some time to startup
-	delay(3000);
-
 	// sends a Ping
-	std::cout << "Sending Serial Ping" << std::endl;
+	std::cout << "Sending Serial Ping, waiting for Pong" << std::endl;
 	Protocol.sendCommand(commandPing);
+	while(!Protocol.read() && Protocol.getCommand()!=commandPong){
+		delay(100);
+	}
+	std::cout << "Pong!" << std::endl;
+	_status=false;
 
 	// sends on request
 	std::cout << "Sending Serial on request" << std::endl;
