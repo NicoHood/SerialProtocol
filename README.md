@@ -3,6 +3,13 @@ SerialProtocol
 
 A Protocol for Arduino - Raspberry Pi communication
 
+New Version moved here:
+=======================
+https://github.com/NicoHood/NicoHoodProtocol
+
+Download
+========
+
 *Click Download as zip to download or this link*
 https://github.com/NicoHood/SerialProtocol/archive/master.zip
 
